@@ -26,48 +26,52 @@
     </init>
 
     <!-- scalar -->
-    <test_s_getArray><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArray>
-    <test_s_getXArray><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getXArray>
-    <test_s_getArrayIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArrayIter1>
-    <test_s_getArrayIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArrayIter2>
-    <test_s_getHash><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHash>
-    <test_s_getXHash><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getXHash>
-    <test_s_getHashIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHashIter1>
-    <test_s_getHashIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHashIter2>
 
+    <test_s_get_scalar><get>SELECT rhs FROM xml_object_dbi_test WHERE lhs = 'alpha';</get></test_s_get_scalar>
+    <test_s_get_scalars><get>SELECT lhs FROM xml_object_dbi_test;</get></test_s_get_scalars>
+    <test_s_get_fields><get>SELECT * FROM xml_object_dbi_test;</get></test_s_get_fields>
+    <test_s_get_arrayref><get>SELECT * FROM xml_object_dbi_test;</get></test_s_get_arrayref>
+    <test_s_get_arrayrefs><get>SELECT * FROM xml_object_dbi_test;</get></test_s_get_arrayrefs>
+    <test_s_get_hashref><get>SELECT * FROM xml_object_dbi_test;</get></test_s_get_hashref>
+    <test_s_get_hashrefs><get>SELECT * FROM xml_object_dbi_test;</get></test_s_get_hashrefs>
 
     <!-- list -->
 
-    <test_l_getArray><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArray>
-    <test_l_getXArray><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getXArray>
-    <test_l_getArrayIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArrayIter1>
-    <test_l_getArrayIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArrayIter2>
-    <test_l_getHash><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHash>
-    <test_l_getXHash><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getXHash>
-    <test_l_getHashIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHashIter1>
-    <test_l_getHashIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHashIter2>
+    <test_l_get_and_fields><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_and_fields>
+    <test_l_get_fields><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_fields>
+    <test_l_get_scalar><get>SELECT rhs FROM xml_object_dbi_test WHERE lhs = 'alpha';</get></test_l_get_scalar>
+    <test_l_get_scalars><get>SELECT lhs FROM xml_object_dbi_test;</get></test_l_get_scalars>
+    <test_l_get_arrayref><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_arrayref>
+    <test_l_get_arrayrefs><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_arrayrefs>
+    <test_l_get_hashref><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_hashref>
+    <test_l_get_hashrefs><get>SELECT * FROM xml_object_dbi_test;</get></test_l_get_hashrefs>
 
-    <test_arrayref>
-	<get path="test_arrayref.sql" />
-    </test_arrayref>
+    <test_get_arrayref>
+	<get path="test_get_arrayref.sql" />
+    </test_get_arrayref>
 
-    <test_hashref>
-	<get path="test_hashref.sql" />
-    </test_hashref>
+    <test_get_hashref>
+	<get path="test_get_hashref.sql" />
+    </test_get_hashref>
 
-    <test_set>
-	<get path="test_set_get.sql" />
-	<set path="test_set_set.sql" />
-    </test_set>
+    <test_set_1>
+	<get path="test_set_1_get.sql" />
+	<set path="test_set_1_set.sql" />
+    </test_set_1>
 
-    <test_setIter_args>
-	<get path="set_iter_args_get.sql" />
-	<set path="set_iter_args_set.sql" />
-    </test_setIter_args>
+    <test_set_2>
+	<get path="test_set_2_get.sql" />
+	<set path="test_set_2_set.sql" />
+    </test_set_2>
 
-    <test_setIter_noargs>
-	<get path="set_iter_noargs_get.sql" />
-	<set path="set_iter_noargs_set.sql" />
-    </test_setIter_noargs>
+    <test_set_3>
+	<get path="test_set_3_get.sql" />
+	<set path="test_set_3_set.sql" />
+    </test_set_3>
+
+    <test_set_4>
+	<get path="test_set_4_get.sql" />
+	<set path="test_set_4_set.sql" />
+    </test_set_4>
 
 </config>

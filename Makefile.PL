@@ -7,7 +7,8 @@ WriteMakefile(
     'VERSION_FROM'	=> 'lib/XML/Object.pm', # finds $VERSION
     'PREREQ_PM'		=> { 
 	'Error'		=> 0.15,
-	'XML::Simple'	=> 0,
+	'XML::Simple'	=> 2.08, # Need SuppressEmpty which occurs between 2.03 and 2.08
+	'XML::Parser'	=> 0, # Need SuppressEmpty which occurs between 2.03 and 2.08
 	'Test::More'	=> 0,
 	'Util'		=> 0.02
     }, # e.g., Module::Name => 1.1

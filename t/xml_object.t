@@ -49,7 +49,7 @@ sub t_caller_test1 {
 
 sub t_caller_test2 {
     my ($self, $key) = @_;
-    return $self->caller_test();
+    return $self->key_test($self->parent());
 }
 
 1;

@@ -1,5 +1,9 @@
 Revision history for Perl extension XML::Object.
 
+0.03  Fri Jul 04 14:57:45 2003
+    - Complete API overhaul
+    - Added scalar accessor for single field result sets
+
 0.02  Tue Jun 18 17:33:13 2003
     XML::Object
 	- Documentation overhaul

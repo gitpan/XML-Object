@@ -1,4 +1,4 @@
-XML::Object version 0.02
+XML::Object version 0.03
 =======================
 
 XML::Object allows easy (XML) configuration of a Perl script/module
@@ -27,6 +27,8 @@ DEPENDENCIES
     Error
     Util
     XML::Simple
+    XML::Parser
+    Test::More
 
 To test XML::Object::DBI you will need a database that allows the
 creation and population of a new test table. The DSN, username and

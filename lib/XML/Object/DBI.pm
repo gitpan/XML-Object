@@ -23,12 +23,48 @@ sub new {
 
 1;
 
-package XOE::BadDo;
+package XOE::BadScalarFields;
+use base qw(XOE);
+
+sub new {
+    my ($class, $path, $sql, $fields) = @_;
+    my $msg = "scalar(s): invalid number of fields: $fields path: '$path' sql: '$sql'";
+    my $self = $class->SUPER::new($msg);
+    bless $self, ref $class || $class;
+}
+
+1;
+
+package XOE::BadScalarRows;
+use base qw(XOE);
+
+sub new {
+    my ($class, $path, $sql, $rows) = @_;
+    my $msg = "scalar: invalid number of rows: $rows path: '$path' sql: '$sql'";
+    my $self = $class->SUPER::new($msg);
+    bless $self, ref $class || $class;
+}
+
+1;
+
+package XOE::BadSet;
 use base qw(XOE);
 
 sub new {
     my ($class, $path, $sql, $errstr) = @_;
-    my $msg = "can't do SQL: path: $path sql: '$sql' err: $errstr";
+    my $msg = "can't do SQL: path: '$path' sql: '$sql' err: $errstr";
+    my $self = $class->SUPER::new($msg);
+    bless $self, ref $class || $class;
+}
+
+1;
+
+package XOE::BadTemplate;
+use base qw(XOE);
+
+sub new {
+    my ($class, $err, $path, $template) = @_;
+    my $msg = "${err} path: '$path' template: '$template'";
     my $self = $class->SUPER::new($msg);
     bless $self, ref $class || $class;
 }
@@ -40,7 +76,7 @@ use base qw(XOE);
 
 sub new {
     my ($class, $path, $sql, $errstr) = @_;
-    my $msg = "can't execute SQL: path: $path sql: '$sql' err: $errstr";
+    my $msg = "can't execute SQL: path: '$path' sql: '$sql' err: $errstr";
     my $self = $class->SUPER::new($msg);
     bless $self, ref $class || $class;
 }
@@ -52,7 +88,7 @@ use base qw(XOE);
 
 sub new {
     my ($class, $path, $sql, $errstr) = @_;
-    my $msg = "can't process statement: path: $path sql: '$sql' err: $errstr";
+    my $msg = "can't process statement: path: '$path' sql: '$sql' err: $errstr";
     my $self = $class->SUPER::new($msg);
     bless $self, ref $class || $class;
 }
@@ -77,7 +113,7 @@ use base qw(XOE);
 
 sub new {
     my ($class, $path, $sql, $errstr) = @_;
-    my $msg = "can't prepare SQL: path: $path sql: '$sql' err: $errstr";
+    my $msg = "can't prepare SQL: path: '$path' sql: '$sql' err: $errstr";
     my $self = $class->SUPER::new($msg);
     bless $self, ref $class || $class;
 }
@@ -95,6 +131,87 @@ sub new {
 
 1;
 
+package XML::Object::DBI::Accessor;
+
+use strict;
+use warnings;
+
+sub new {
+    my $class = shift;
+    my $self = [ @_ ]; # $fields, $sth, $path, $sql
+    bless $self, ref $class || $class;
+}
+
+sub hashref {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $hash_ref = $sth->fetchrow_hashref();
+    unless ($hash_ref) {
+	throw XOE::BadFetch ($sth->err) if ($sth->err);
+	return; # return an empty list so that while (@row = &$sub) evaluates to false
+    }
+    return wantarray ? %$hash_ref : { %$hash_ref }; # DBI reuses the same ref
+}
+
+sub hashrefs {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $hash_refs = $sth->fetchall_arrayref({});
+    throw XOE::BadFetch ($path, $sql, $sth->err) if ($sth->err);
+    # DBI reuses the same ref
+    return wantarray ? @$hash_refs : [ @$hash_refs ];
+}
+
+sub arrayref {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $array_ref = $sth->fetchrow_arrayref();
+    unless ($array_ref) {
+	throw XOE::BadFetch ($sth->err) if ($sth->err);
+	return; # return an empty list so that while (@row = &$sub) evaluates to false
+    }
+    return wantarray ? @$array_ref : [ @$array_ref ]; # DBI reuses the same ref
+}
+
+sub arrayrefs {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $hash_refs = $sth->fetchall_arrayref();
+    throw XOE::BadFetch ($path, $sql, $sth->err) if ($sth->err);
+    # DBI reuses the same ref
+    return wantarray ? @$hash_refs : [ @$hash_refs ];
+}
+
+sub scalar {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $arrayrefs = $self->arrayrefs();
+    my $nfields = $#$fields + 1;
+    my $nrows = $#$arrayrefs + 1;
+    throw XOE::BadScalarFields ($path, $sql, $nfields) unless ($nfields == 1);
+    throw XOE::BadScalarRows ($path, $sql, $nrows) unless ($nrows == 1);
+    return wantarray ? ($fields->[0], $arrayrefs->[0]->[0]) :  $arrayrefs->[0]->[0]; 
+}
+
+sub scalars {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    my $arrayrefs = $self->arrayrefs();
+    my $nfields = $#$fields + 1;
+    throw XOE::BadScalarFields ($path, $sql, $nfields) unless ($nfields == 1);
+    my $scalars = [ map { $_->[0] } @$arrayrefs ];
+    # isolated from reused DBI ref by map
+    return wantarray ? @$scalars : $scalars;
+}
+
+sub fields {
+    my $self = shift;
+    my ($sth, $fields, $path, $sql) = @$self;
+    return wantarray ? @$fields : $fields;
+}
+
+1;
+
 package XML::Object::DBI;
 
 use strict;
@@ -103,12 +220,7 @@ use base qw(XML::Object);
 use Util qw(arrayref hashref ltrim rtrim readfile);
 use DBI;
 
-use constant ARRAY	=> 0;
-use constant HASH	=> 1;
-use constant ITER	=> 2;
-use constant COLUMNS	=> 4; # synonyms
-
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 # use Data::Dumper; $Data::Dumper::Indent = $Data::Dumper::Terse = 1;
 
@@ -116,9 +228,10 @@ sub new {
     my ($class, $config_file, %xmloptions) = @_;
     # specifically: an empty password should become an empty string
     my $self = $class->SUPER::new($config_file, SuppressEmpty => '', %xmloptions);
-    my $dsn = $self->test('dsn') || $self->test('datasource') || $self->test('data_source');
+    my $dsn = $self->test('dsn') || $self->test('datasource')
+       	|| $self->test('data_source');
     my $user = $self->test('user') || $self->test('username');
-    my $pass = $self->test('password');
+    my $pass = $self->test('password') || $self->test('pass');
 
     # under ODBC neither username nor password are needed;
     $self->dbh($dsn, $user, $pass) if (defined $dsn);
@@ -130,7 +243,8 @@ sub new {
 sub DESTROY {
     my $self = shift;
     my $dbh = $self->dbh();
-    $dbh->disconnect() if (defined $dbh); # may have thrown an exception beforei initializing dbh 
+    # may have thrown an exception before initializing dbh 
+    $dbh->disconnect() if (defined $dbh);
 }
 
 sub debug {
@@ -145,7 +259,8 @@ sub dbh {
 	$pass = '' unless (defined $pass);
 	$user = '' unless (defined $user);
 	throw XOE::BadConnect($DBI::errstr) unless 
-	    ($dbh = DBI->connect($dsn, $user, $pass, { RaiseError => 0, PrintError => 0, AutoCommit => 1 }));
+	    ($dbh = DBI->connect($dsn, $user, $pass,
+	    { RaiseError => 0, PrintError => 0, AutoCommit => 1 }));
 	return $self->{_XML_OBJECT_}->{DBH} = $dbh;
     } else {
 	return $self->{_XML_OBJECT_}->{DBH};
@@ -153,157 +268,64 @@ sub dbh {
 }
 
 sub hash2array {
-    my ($self, $columns, $hash) = @_;
-    throw XOE::BadArrayRef (ref $columns) unless (arrayref $columns);
+    my ($self, $fields, $hash) = @_;
+    throw XOE::BadArrayRef (ref $fields) unless (arrayref $fields);
     throw XOE::BadHashRef (ref $hash) unless (hashref $hash);
     my $array = [];
-    local $_;
-    push @$array, $hash->{$columns->[$_]} for (0 .. $#$columns);
+    push @$array, $hash->{$fields->[$_]} for (0 .. $#$fields);
     return $array;
 }
 
 sub array2hash {
-    my ($self, $columns, $array) = @_;
-    throw XOE::BadArrayRef(ref $columns) unless (arrayref $columns);
+    my ($self, $fields, $array) = @_;
+    throw XOE::BadArrayRef(ref $fields) unless (arrayref $fields);
     throw XOE::BadArrayRef(ref $array) unless (arrayref $array);
     my $hash = {};
-    local $_;
-    $hash->{$columns->[$_]} = $array->[$_] for (0 .. $#$columns); 
+    $hash->{$fields->[$_]} = $array->[$_] for (0 .. $#$fields); 
     return $hash;
 }
 
 #############################################
 
-# get is separated so that it can be invoked with an explicit key, as
-# well as automatically according to the caller's name
+# args: ($self, $optional_configuration, @optional_path, $optional_array_or_hash_ref)
 
-# FIXME: args is now a HASH ref or an ARRAY ref and any arguments before
-# it are used to key into the configuration data structure in the standard way
-
-sub caller_getArray {
-    my $self = shift;
-    return $self->get(ARRAY, $self->grandparent, @_);
-}
-
-sub caller_getXArray {
-    my $self = shift;
-    return $self->get(ARRAY | COLUMNS, $self->grandparent, @_);
-}
-
-sub caller_getArrayIter {
-    my $self = shift;
-    return $self->get(ARRAY | ITER, $self->grandparent, @_);
-}
-
-sub caller_getHash {
-    my $self = shift;
-    return $self->get(HASH, $self->grandparent, @_);
-}
-
-sub caller_getXHash {
-    my $self = shift;
-    return $self->get(HASH | COLUMNS, $self->grandparent, @_);
-}
-
-sub caller_getHashIter {
-    my $self = shift;
-    return $self->get(HASH | ITER, $self->grandparent, @_);
-}
-
-#############################################
-
-sub getArray {
-    my $self = shift;
-    return $self->get(ARRAY, $self->parent, @_);
-}
-
-sub getXArray {
-    my $self = shift;
-    return $self->get(ARRAY | COLUMNS, $self->parent, @_);
-}
-
-sub getArrayIter {
-    my $self = shift;
-    return $self->get(ARRAY | ITER, $self->parent, @_);
-}
-
-sub getHash {
-    my $self = shift;
-    return $self->get(HASH, $self->parent, @_);
-}
-
-sub getXHash {
-    my $self = shift;
-    return $self->get(HASH | COLUMNS, $self->parent, @_);
-}
-
-sub getHashIter {
-    my $self = shift;
-    return $self->get(HASH | ITER, $self->parent, @_);
-}
-
-#############################################
-
-sub key_getArray {
-    my $self = shift;
-    return $self->get(ARRAY, @_);
-}
-
-sub key_getXArray {
-    my $self = shift;
-    return $self->get(ARRAY | COLUMNS, @_);
-}
-
-sub key_getArrayIter {
-    my $self = shift;
-    return $self->get(ARRAY | ITER, @_);
-}
-
-sub key_getHash {
-    my $self = shift;
-    return $self->get(HASH, @_);
-}
-
-sub key_getXHash {
-    my $self = shift;
-    return $self->get(HASH | COLUMNS, @_);
-}
-
-sub key_getHashIter {
-    my $self = shift;
-    return $self->get(HASH | ITER, @_);
-}
-
-#############################################
-
-# args: ($self, $mode, @path, $args_array_or_hash_ref)
-
-# where $mode is a conjunction of:
-
-# 0 => ARRAY
-# 1 => HASH
-# 2 => SUB
-# 4 => COLUMNS
-
-# if a getIter sub is called in list context the iterator and columns are returned
-# otherwise just the iterator is returned. To get columns when an iterator is not
-# being used, use getXArray or getXHash
+# if get() or key_get is called in list context the accessor and fields are returned
+# otherwise just the accessor is returned.
 
 sub get {
     my $self = shift;
-    my $mode = shift;
+    if (((scalar @_) > 1) && (ref $_[0])) {
+	my $cfg = shift;
+	return $self->key_get($cfg, $self->parent, @_);
+    } else {
+	return $self->key_get($self->parent, @_);
+    }
+}
+
+sub key_get {
+    my $self = shift;
+    my $cfg;
+
+    if (((scalar @_) > 1) && (ref $_[0])) {
+	$cfg = shift;
+    } else {
+	$cfg = $self->config();
+    }
+
     my $args = ref $_[-1] ? pop : undef;
     my @path = @_;
     my $path = join '/', @path;
+
     my ($template, $debug);
-    my $get = $self->key_demand(@path, 'get');
+    my $get = $self->key_demand($cfg, @path, 'get');
 
     if (ref $get) {
 	$debug = $get->{debug};
 	if (exists $get->{path}) {
 	    my $path = $get->{path};
 	    my $fatal = sub { my $errmsg = shift; throw XOE::BadSQLPath ($errmsg) };
-	    $template = readfile ($path, DIE => $fatal); # throw an exception if an error occurs
+	    # throw an exception if an error occurs
+	    $template = readfile ($path, DIE => $fatal);
 	} else {
 	    $template = $get->{content};
 	}
@@ -311,17 +333,13 @@ sub get {
         $template = $get;
     }
 
-    my $want_columns = $mode & COLUMNS;
-    # squashed buglet: don't check for want_array as its value is 0
-    my $want_hash = $mode & HASH;
-    my $want_sub = $mode & ITER;
-
     # don't *assume* it's a format as this means percentage signs have to be doubled
     # even in cases where no additional args are being passed
 
     my $sql;
 
     if (arrayref $args) {
+	local $SIG{__WARN__} = sub { my $err = shift; throw XOE::BadTemplate ($err, $path, $template) };
 	$sql = (scalar @$args) ? sprintf ($template, @$args) : $template;
     } elsif (hashref $args) {
 	$sql = $template;
@@ -333,8 +351,7 @@ sub get {
 	$sql = $template;
     }
 
-    $sql = ltrim $sql;
-    $sql = rtrim $sql;
+    $sql = ltrim rtrim $sql;
 
     $self->debug("$path: $sql") if ($debug);
 
@@ -346,51 +363,10 @@ sub get {
     # squashed MySQL bug: the names ARRAY ref was being undef'd by fetchall_arrayref()
     # so grab them while stocks last
 
-    my $columns = $sth->{NAME};
+    my $fields = $sth->{NAME};
 
-    if ($want_sub) {
-	my $sub;
-	if ($want_hash) { # hash sub
-	    $sub = sub {
-		my $hash_ref = $sth->fetchrow_hashref();
-		unless ($hash_ref) {
-		    throw XOE::BadFetch ($sth->err) if ($sth->err);
-		    return; # return an empty list so that while (@row = &$sub) evaluates to false
-		}
-		return wantarray ? %$hash_ref : { %$hash_ref }; # DBI reuses the same ref
-	    };
-	} else { # array sub
-	    $sub = sub {
-		my $array_ref = $sth->fetchrow_arrayref();
-		unless ($array_ref) {
-		    throw XOE::BadFetch ($sth->err) if ($sth->err);
-		    return; # return an empty list so that while (@row = &$sub) evaluates to false
-		}
-		return wantarray ? @$array_ref : [ @$array_ref ]; # DBI reuses the same ref
-	    };
-	}
-	# note: return of columns for iterator usage depends entirely on the
-        # WANT context: $want_columns is ignored	
-	return wantarray ? ($sub, $columns) : $sub;
-    } else {
-	if ($want_hash) { # hashes
-	    my $hash_refs = $sth->fetchall_arrayref({});
-	    throw XOE::BadFetch ($path, $sql, $sth->err) if ($sth->err);
-	    if ($want_columns) {
-		return wantarray ? ($columns, @$hash_refs) : [ $columns, @$hash_refs ]; # DBI reuses the same ref
-	    } else {
-		return wantarray ? @$hash_refs : [ @$hash_refs ]; # DBI reuses the same ref
-	    }
-	} else { # arrays
-	    my $array_ref = $sth->fetchall_arrayref();
-	    throw XOE::BadFetch ($path, $sql, $sth->err) if ($sth->err);
-	    if ($want_columns) {
-		return wantarray ? ($columns, @$array_ref) : [ $columns, @$array_ref ];
-	    } else {
-		return wantarray ? @$array_ref : [ @$array_ref ];
-	    }
-	}
-    }
+    my $accessor = XML::Object::DBI::Accessor->new($sth, $fields, $path, $sql);
+    return wantarray ? ($accessor, $fields) : $accessor;
 }
 
 #############################################
@@ -415,16 +391,6 @@ sub key_setIter {
     return $self->_set(1, @_);
 }
 
-sub caller_set {
-    my $self = shift;
-    return $self->_set(0, $self->grandparent, @_);
-}
-
-sub caller_setIter {
-    my $self = shift;
-    return $self->_set(1, $self->grandparent, @_);
-}
-
 sub _set {
     my $self = shift;
     my $mode = shift;
@@ -439,7 +405,8 @@ sub _set {
 	if (exists $set->{path}) {
 	    my $path = $set->{path};
 	    my $fatal = sub { my $errmsg = shift; throw XOE::BadSQLPath ($errmsg) };
-	    $template = readfile ($path, DIE => $fatal); # throw an exception if an error occurs
+	    # throw an exception if an error occurs
+	    $template = readfile ($path, DIE => $fatal);
 	} else {
 	    $template = $set->{content};
 	}
@@ -454,6 +421,7 @@ sub _set {
 	my $args = shift;
 	my $sql;
 	if (arrayref $args) {
+	    local $SIG{__WARN__} = sub { my $err = shift; throw XOE::BadTemplate ($err, $path, $template) };
 	    $sql = (scalar @$args) ? sprintf ($template, @$args) : $template;
 	} elsif (hashref $args) {
 	    $sql = $template;
@@ -468,27 +436,24 @@ sub _set {
 	$sql = ltrim $sql;
 	$sql = rtrim $sql;
 
-	$self->debug("$path: $sql") if ($debug);
-
 	return $sql;
     };
 
     my $dbh = $self->dbh();
     
-    # modes: 0 => immediate, 1 => lazy
+    my $sub = sub {
+	# override the default args with new args if supplied
+	my $bind = ($_[-1]) ? ($_[-1]) : $ref;
+	my $sql = $transform_sql->($bind);
 
-    if ($mode == 0) { # array
-	my $sql = $transform_sql->($ref);
-	my $rows_affected = $dbh->do($sql) || throw XOE::BadDo($path, $sql, $dbh->errstr);
+	$self->debug("$path: $sql") if ($debug);
+
+	my $rows_affected = $dbh->do($sql)
+	    || throw XOE::BadSet($path, $sql, $dbh->errstr);
 	return $rows_affected;
-    } elsif ($mode == 1) { # mutator sub
-	return sub {
-	    my $bind = ($_[-1]) ? ($_[-1]) : $ref; # override the default args with new args if supplied
-	    my $sql = $transform_sql->($bind);
-	    my $rows_affected = $dbh->do($sql) || throw XOE::BadDo($path, $sql, $dbh->errstr);
-	    return $rows_affected;
-	};
-    }
+    };
+
+    return $mode ? $sub : $sub->();
 }
 
 1;
@@ -510,36 +475,48 @@ sub _set {
     sub new {
 	my $class = shift;
 	my $self = $class->SUPER::new(@_);
+
 	# ...
+
+	return $self;
     }
 
-    sub foo {
+    sub method1 {
 	my $self = shift;
 
-	# simple API for data source accessors
-	for my $hashref ($self->getHash()) {
+	# simple API for data source accessors: no args
+	for my $hashref ($self->get()->hashrefs) {
 	    $self->do_something_with($hashref);
 	}
     }
 
-    sub bar {
+    sub method2 {
 	my $self = shift;
 
-	# positional sprintf-like args
-	for my $hashref ($self->getHash([ 'foo', 'bar' ])) {
+	# positional sprintf-like bindings
+	for my $hashref ($self->get([ 'foo', 'bar' ])->hashrefs) {
 	    $self->do_something_with($hashref);
 	}
     }
 
-    sub baz {
+    sub method3 {
 	my $self = shift;
-
 	my $mutator = $self->setIter(); # similar API for mutators 
 
-	# named template-style args
-	for my $arrayref ($self->getArray({ 'alpha' => 'beta', 'gamma' => 'vlissides'})) {
-	    $mutator->([ $arrayref->{foo}, $arrayref->{bar} ]);
+	# named template-style bindings
+	my $bind = { 'alpha' => 'beta', 'gamma' => 'vlissides'};
+	my $get = $self->get($bind);
+
+	# row-at-a-time
+	while ($arrayref = $get->arrayref) {
+	    $mutator->(...);
 	}
+    }
+
+    sub method4 {
+	my $self = shift;
+	my $get = $self->get([ 42 ]);
+	my $scalar = $get->scalar();
     }
 
 =head2 XML
@@ -550,27 +527,30 @@ sub _set {
 	    <user>foo</user>
 	    <password>bar</password>
 	</new>
-	<foo>
+
+	<method1>
 	    <!-- no args -->
 	    <get>SELECT * FROM foo WHERE bar = 'baz';</get>
-	</foo>
-	<bar>
+	</method1>
+
+	<method2>
 	    <!-- positional -->
 	    <get>SELECT * FROM bar WHERE %s = '%s';</get>
-	</bar>
-	<baz>
+	</method2>
+
+	<method3>
 	    <!-- named -->
 	    <get>SELECT * FROM baz WHERE %alpha = '%beta';</get>
 	    <!-- SQL can be inline or external -->
 	    <set path="example.sql" />
-	</baz>
+	</method3>
 
-	<alpha>
-    </config>
+	<method4>
+	    <!-- single row, single column -->
+	    <get>SELECT foo FROM bar WHERE unique_id = %d;</get>
+	</method4>
 
-=head2 example.sql
-
-    UPDATE baz SET foo = 'bar' WHERE %s = %d;
+    <config>
 
 =head1 DESCRIPTION
 
@@ -580,7 +560,7 @@ sub _set {
 	   tangled in DBI duct tape
 	b) to move SQL out of Perl and into XML or SQL files
 
-    XML::Object::DBI adds get*() and set*() methods to the base XML::Object class.
+    XML::Object::DBI adds get() and set() methods to the base XML::Object class.
 
     These provide a DWIMish interface to the usual relational accessors
     and mutators.
@@ -624,10 +604,10 @@ multiple data sources can easily be achieved through aggregation:
 	my ($self, $arg1, $arg2) = @_;
 	my $source = $self->source();
 	my $destination = $self->destination();
-	my $iter = $source->getHashIter([ $arg1, $arg2 ]);
+	my $get = $source->get([ $arg1, $arg2 ]);
 	my $row;
 
-	while ($row = &$iter) {
+	while ($row = $get->hashref) {
 	    $destination->set({ foo => $row->{foo}, bar => $row->{bar} });
 	}
     }
@@ -667,7 +647,7 @@ e.g.
     </config>
 
 The contents of the <dsn> ... </dsn> tag should be a valid DBI data source
-name. See the DBI docs for more info. Valid synonyms are:
+name. Valid synonyms are:
 
     <datasource> ... </datasource>
 
@@ -714,20 +694,78 @@ XML::Simpl-ifies to:
 	...
     }
 
-=head2 getArray
+=head2 get
+
+=head2 key_get
 
 =head3 usage
 
-    my $list_of_arrayrefs = $self->getArray(...);
-    my @list_of_arrayrefs = $self->getArray(...);
+    my $accessor = $self->get($optional_config, @optional_path, $optional_bindings);
+	# or
+    my $accessor = $self->key_get($optional_config, @optional_path, $optional_bindings);
+
+
+    my $scalar = $accessor->scalar(); # single row, single column
+    my @scalars = $accessor->scalars(); # single column, list context
+    my $scalars = $accessor->scalars(); # single column, scalar context
+
+	# or
+
+    while ($arrayref = $accessor->arrayref) { ... }
+	# AKA
+    while (@array = $accessor->arrayref) { ... }
+
+	# or
+
+    for my $arrayref ($accessor->arrayrefs) { ... }
+	# AKA
+    my $array_of_arrayrefs = $accessor->arrayrefs();
+
+	# or
+
+    while ($hashref = $accessor->hashref) { ... }
+	# AKA
+    while (%hash = $accessor->hashref) { ... }
+
+	# or
+
+    for my $hashref ($accessor->hashrefs) { ... }
+	# AKA
+    my $array_of_hashrefs = $accessor->hashrefs();
+
+	# or
+
+    my $fields = $accessor->fields();
+	# AKA
+    my @fields = $accessor->fields();
 
 =head3 description
 
-Evaluates the SQL (typically a SELECT statement) defined under the element
-name corresponding to the name of the current function, and returns the results as a
-list of ARRAY refs in list context or a reference to a list of ARRAY refs in scalar
-context. Specify debug="1" (or some such value of debug that is non-false) to display
-the executed SQL using the object's C<debug()> method (which, by default, prints to STDERR).
+C<get()> evaluates the SQL (typically a SELECT statement) defined under the element
+name corresponding to the name of the current function, and returns a new
+XML::Object::DBI::Accessor object as a result. This object implements the methods
+outlined above: C<arrayref()>, C<arrayrefs()>, C<hashref()>, C<hashrefs()>,
+C<scalar()>, C<scalars()> and C<fields()>.
+
+key_get() works the same, but takes an absolute path instead of deriving it from
+the name of the current method. Thus:
+
+    sub foo {
+	my $self = shift;
+	my $get = $self->get();
+    }
+
+is equivalent to:
+
+    sub foo {
+	my $self = shift;
+	# use 'foo' as key into configuration data structure
+	my $get = $self->get($self->self);
+    }
+	
+If debug="1" (or some such value of debug that is non-false) is specified in the XML,
+the executed SQL is processed via the XML::Object::DBI::debug() method (which, by
+default, prints to STDERR). Subclasses can override this to provide other behaviour.
 
 e.g. 
 
@@ -741,14 +779,6 @@ e.g.
 	</foo>
     </config>
 
-=head4 perl
-
-    sub foo {
-	my $self = shift;
-	my @list_of_arrayrefs = $self->getArray();
-	# ...
-    }
-
 As an alternative to inlined SQL, the path to an external SQL file can be specified using
 the path attribute:
 
@@ -758,9 +788,9 @@ the path attribute:
 	</foo>
     </config>
 
-Arguments to all the get* and set* methods are processed in the same manner as args
-to C<demand()>, C<test()> &c. in XML::Object. i.e. a data structure can be passed as the
-configuration 'context':
+Arguments to C<get()>, C<key_get()>, C<set()>, C<key_set()>, C<setIter()> and
+C<key_setIter()> are processed in the same manner as args to C<demand()>, C<test()>
+&c. in XML::Object. i.e. a data structure can be passed as the configuration 'context':
 
     sub init {
 	my $self = shift;
@@ -770,7 +800,7 @@ configuration 'context':
 	try {
 	    # e.g. DROP TABLE whatever;
 	    $self->set($init, 'drop');
-	} catch XOE::BadDo with {
+	} catch XOE::BadSet with {
 	    # ignore error if table doesn't exist 
 	}
 
@@ -785,7 +815,7 @@ configuration 'context':
 Alternatively (or in addition) a 'path' into the configuration data structure
 can be supplied either relative to the current path (determined by the name of
 the current sub for the 'standard' accessors and mutators) or absolutely (for
-key_get* and key_set*). Note that: however the path is derived, 'get' or 'set'
+key_get and key_set*). Note that: however the path is derived, 'get' or 'set'
 are always appended to the path expression:
 
     sub example1 {
@@ -800,149 +830,60 @@ are always appended to the path expression:
 	my @arrayrefs = $self->key_getArray('foo', 'bar', 'baz');
     }
 
-An ARRAY ref or HASH ref can be supplied as the final argument to all accessors
-and mutators. The mechanism by which these arguments are bound into the generated SQL
-are described in the C<set()> documentation below.
+An ARRAY ref or HASH ref can be supplied as the final argument to all C<get()> and
+C<set()> methods. The mechanism by which these arguments are bound into
+the generated SQL are described in the C<set()> section below.
 
-=head2 getXArray
+An ARRAY or HASH ref is considered to be a collection of
+template bindings (either positional or named) if it appears at the end of a parameter 
+list containing two or more arguments; conversely, an ARRAY or HASH ref appearing
+at the beginning of a parameter list (again: with two or more arguments) is considered to be a
+configuration 'context' i.e. the data structure against which lookups are performed.
 
-=head3 usage
+In the ambiguous case where only one argument is supplied and that argument is a reference,
+it is taken to be a collection of template bindings rather than a configuration context.
+i.e.
 
-    my $list_of_arrayrefs = $self->getXArray(...);
-    my ($columns, @list_of_arrayrefs) = $self->getXArray(...);
+    sub foo {
+	my $self = shift;
+	my $get = $self->get($hashref);
+    }
 
-=head3 description
+resolves to:
 
-This 'enhanced' (think X for eXtra) getArray() prepends an ARRAY ref containing
-the names of the fields/columns of the result set.
+    sub foo {
+	my $self = shift;
+	# look up $self->config()->{foo} and perform template substitutions contained in $hashref
+	my $get = $self->key_get($self->self, $hashref);
+    }
 
-e.g.
+rather than:
 
-    my ($columns, @arrayrefs) = $self->getXArray();
+    sub foo {
+	my $self = shift;
+	# look up $hashref->{foo}->{get}
+	my $get = $self->key_get($hashref, $self->self);
+    }
 
-	# or
+To perform the latter query, simply write it out as shown with at least one other argument
+to provide explicit disambiguation.
 
-    my $get = $self->getXArray();
-    my $columns = shift @$get;
-    whatever($_) for (@$get);
+In list context, C<get()> and C<key_get()> return an ARRAY ref of the fields associated with
+the query - this corresponds to the value returned by the XML::Object::DBI::Accessor::fields()
+method:
 
-=head2 getArrayIter
-
-=head3 usage
-
-    my $iter = $self->getArrayIter(...);
-    my ($iter, $columns) = $self->getArrayIter(...);
-
-=head3 description
-
-Returns a closure that gives 1-row-at-a-time access to the data
-source (in the form of an ARRAY ref or list). The iterator continues
-to return true (in scalar or list context) until the data source is
-exhausted:
-
-    my $iter = $self->getArrayIter(...);
-    my ($row, @row);
-
-    while ($row = &$iter) { ... } # ARRAY ref
-
-	# or
-
-    while (@row = &$iter) { ... } # list
-
-If the call to C<getArrayIter()> is made in list context,
-an ARRAY ref representing the names of the columns of
-the query's result set is returned as the second argument:
-
-    my ($iter, $columns) = $self->getArrayIter(...);
-
-=head2 getHash
-
-=head3 usage
-
-    my $list_of_hashrefs = $self->getHash(...);
-    my @list_of_hashrefs = $self->getHash(...);
-
-=head3 description
-
-Returns a list of HASH refs or a reference to a list of HASH refs
-according to context. Usage is otherwise the same as C<getArray()>.
-
-=head2 getXHash
-
-=head3 usage
-
-    my $list_of_hashrefs = $self->getXHash(...);
-    my @list_of_hashrefs = $self->getXHash(...);
-
-=head3 description
-
-Returns a list of HASH refs or a reference to a list of HASH refs
-with an additional columns ARRAY ref (representing the fields of
-the query's result set) as the first item of the list:
-
-    my ($columns, @hashrefs) = $self->getXHash(...);
-
-Usage is otherwise the same as C<getXArray()>.
-
-=head2 getHashIter
-
-=head3 usage
-
-    my $iter = $self->getHashIter(...);
+    sub whatever {
+	my $get = $self->get(...);
+	my $fields = $get->fields();
 
 	# or
 
-    my ($iter, $columns) = $self->getHashIter(...);
-
-=head3 description
-
-Returns a closure that gives 1-row-at-a-time access to the data
-source (in the form of a HASH ref or hash). The iterator continues
-to return true (in scalar or list context) until the data source is
-exhausted:
-
-    my ($iter, $columns) = $self->getHashIter(...);
-
-Usage is otherwise the same as C<getArrayIter()>.
-
-=head2 caller_getArray
-
-=head2 caller_getXArray
-
-=head2 caller_getArrayIter
-
-=head2 caller_getHash
-
-=head2 caller_getXHash
-
-=head2 caller_getHashIter
-
-=head2 key_getArray
-
-=head2 key_getXArray
-
-=head2 key_getArrayIter
-
-=head2 key_getHash
-
-=head2 key_getXHash
-
-=head2 key_getHashIter
-
-=head3 description
-
-These methods provide alternative interfaces to the C<get()> family of methods.
-
-The caller_* methods use the name of the *caller* of the current function
-(rather than the name of the current function itself) as the root of the
-path into the configuration data structure.
-
-The key_* methods allow an explicit path into the configuration data
-structure to be specified rather than one that is determined by the call stack.
-
-See XML::Object::key_* and XML::Object::caller_* for more details.
+	my ($get, $fields) = $self->get(...);
+    }
 
 =head2 set
+
+=head2 key_set
 
 =head3 usage
 
@@ -950,7 +891,7 @@ See XML::Object::key_* and XML::Object::caller_* for more details.
 	my $self = shift;
 
 
-	my $rows_affected = $self->set(@optional_path, $optional_array_or_hash_ref);
+	my $rows_affected = $self->set($optional_context, @optional_path, $optional_bindings);
 
 	    # i.e.
 
@@ -971,6 +912,10 @@ See XML::Object::key_* and XML::Object::caller_* for more details.
 	    # or
 
 	$self->set('foo', 1, 'bar', { arg1 => $arg1, arg2 => $arg2 });
+
+	    # or
+
+	$self->set($config, 'foo', 1, 'bar', { arg1 => $arg1, arg2 => $arg2 });
     }
 
 =head3 XML
@@ -998,8 +943,8 @@ operations that 'mutate' rather than 'access' the data source.
 Typically, this refers to: INSERT, UPDATE and DELETE.
 
 If an ARRAY ref of args is passed as the last argument to C<set()>,
-it is processed the same way as the get* methods:
-i.e. each argument is C<sprintf()>'d into the SQL (whether external
+it is processed the same way as the get* methods: i.e. each argument
+is C<sprintf()>'d into the SQL (whether external
 or inline) - which is taken to be a printf-style template:
 
     <config>
@@ -1030,19 +975,19 @@ corresponding hashtable values: thus
 
     sub example {
 	my $self = shift;
-	$self->set({ bar => 'fly', baz => 'luhrmann' ]);
+	$self->set({ bar => 'fly', baz => 'luhrmann' });
     }
 
 - would result in:
 
     DELETE FROM foo WHERE fly = 'luhrmann';
 
-All versions of set return an integer representing the number of rows
-affected by the operation, or -1 if the number is not known.
+All invocations of C<set()> and C<key_set()> and of the iterators returned
+by C<setIter()> and C<key_setIter()> return an integer representing the
+number of rows affected by the operation, or -1 if the number is not known.
 
 This number will always evaluate to true in a boolean context, even though
-its arithmentic value may be equivalent to 0 (i.e. 0E0). See the DBI
-docs for more details.
+its arithmentic value may be equivalent to 0 (i.e. 0E0).
 
 Because get* and set* use XML::Object's C<key_demand()> to locate their
 'set' and 'get' sections, the @optional_path part of both these families of methods
@@ -1054,14 +999,20 @@ can supply their own context. e.g. :
 	my $rows_affected = $self->key_set($cfg, [ 'foo', 'bar' ]);
     }
 
+C<key_set()> has the same relationship to C<set()> that C<key_get()> has 
+to C<get()> i.e. it allows one to supply an explicit lookup path rather than
+one automatically derived from the name of the current method.
+
 =head2 setIter
+
+=head2 key_setIter
 
 =head3 usage
 
     sub example {
-	my $accessor = $self->getHashIter(...);
+	my $accessor = $self->get(...);
 	my $mutator = $self->setIter(...);
-	while ($row = &$get) {
+	while ($row = $get->hashref) {
 	    $mutator->({ alpha => $row->{alpha}, beta => $row->{beta} }); 
 	}
     }
@@ -1072,7 +1023,7 @@ Returns a closure that can be used to perform multiple mutations of a data sourc
 Each invocation of the closure performs the operation specified in the inline or
 external SQL; any arguments passed to the closure are interpolated into the SQL in
 accordance with the ARRAY ref and HASH ref conventions outlined in the C<set()>
-documentation above.
+section above.
 
 Note that: arguments passed to C<setIter()> are treated as default bindings that can optionally
 be overridden by arguments passed to the iterator itself. e.g:
@@ -1086,26 +1037,9 @@ be overridden by arguments passed to the iterator itself. e.g:
     $default->([ 'alpha', 'beta' ]);
     # override the bindings for this call only
 
-=head2 caller_set
-
-=head2 caller_setIter
-
-=head2 key_set
-
-=head2 key_setIter
-
-=head3 description
-
-These methods provide alternative interfaces to the C<set()> family of methods.
-
-The caller_* methods use the name of the *caller* of the current function
-(rather than the name of the current function itself) as the root
-into the configuration data structure.
-
-The key_* methods allow an explicit path into the configuration data
-structure to be specified rather than one that is determined by the call stack.
-
-See XML::Object::key_* and XML::Object::caller_* for more details.
+C<key_set()> has the same relationship to C<set()> that C<key_get()> has 
+to C<get()> i.e. it allows one to supply an explicit lookup path rather than
+one automatically derived from the name of the current method.
 
 =head2 dbh
 
@@ -1136,11 +1070,11 @@ data source name, username and password respectively.
 
 =head3 usage
 
-    my $array = $self->array2hash($columns, $hash);
+    my $array = $self->array2hash($fields, $hash);
 
 =head3 description
 
-Converts an ARRAY ref into an a HASH ref using the key provided by the $columns
+Converts an ARRAY ref into an a HASH ref using the key provided by the $fields
 ARRAY ref to attach keys to the supplied values.
 
 This, in conjunction with C<hash2array()>, facilitates interchange between the HASH
@@ -1150,11 +1084,11 @@ and ARRAY ref types returned by the various accessors.
 
 =head3 usage
 
-    my $array = $self->hash2array($columns, $hash);
+    my $array = $self->hash2array($fields, $hash);
 
 =head3 description
 
-Converts a HASH ref into an ARRAY ref using the key provided by the $columns
+Converts a HASH ref into an ARRAY ref using the key provided by the $fields
 ARRAY ref to order the fields.
 
 This, in conjunction with C<array2hash()>, facilitates interchange between the HASH
@@ -1169,11 +1103,6 @@ Thrown if an ARRAY ref argument is expected but not supplied.
 =head2 XOE::BadConnect
 
 Thrown if the initial DBI connection fails.
-
-=head2 XOE::BadDo
-
-Thrown if an error occurs while DBI->do() is performed on the SQL supplied to the
-C<set()> and C<setIter()> methods.
 
 =head2 XOE::BadExecute
 
@@ -1190,6 +1119,21 @@ Thrown if a HASH ref argument is expected but not supplied.
 =head2 XOE::BadPrepare
 
 Thrown if the DBI $sth->prepare method fails.
+
+=head2 XOE::BadScalarFields
+
+Thrown if the C<scalar()> or C<scalars()> is invoked on an accessor whose
+n=head2 XOE::BadScalar
+
+=head2 XOE::BadScalarRows
+
+Thrown if the C<scalar()> is invoked on an accessor whose
+number of rows is not equal to one
+
+=head2 XOE::BadSet
+
+Thrown if an error occurs while DBI->do() is performed on the SQL supplied to the
+C<set()> mutator.
 
 =head2 XOE::BadSQLPath
 

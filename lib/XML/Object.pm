@@ -13,7 +13,7 @@ sub new {
     my $text = "" . (shift || '');
 
     local $Error::Depth = $Error::Depth + 1;
-    local $Error::Debug = 1;  # Enables storing of stacktrace
+    $Error::Debug = 1;  # Enables storing of stacktrace
 
     $self->SUPER::new($text, @_);
 }
@@ -57,8 +57,26 @@ sub new {
 
 1;
 
+package XOE::BadSelf;
+use base qw(XOE);
+
+sub new {
+    my $class = shift;
+    my $text = "self: subroutine not defined";
+    my $self = $class->SUPER::new($text);
+}
+
+1;
+
 package XOE::BadXML;
 use base qw(XOE);
+
+sub new {
+    my ($class, $path, $msg) = @_;
+    my $text = "can't parse XML: path: $path error: $msg";
+    my $self = $class->SUPER::new($text);
+}
+
 1;
 
 package XML::Object;
@@ -66,12 +84,15 @@ package XML::Object;
 use 5.008;
 use strict;
 use warnings;
+use Util qw(arrayref hashref isint);
+use Error qw(:try);
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use XML::Simple; # For slurping the configuration file
+$XML::Simple::PREFERRED_PARSER = 'XML::Parser'; # XML::SAX is evil
+       
 use Error qw(:try);
-use Carp qw(confess); # report errors with stacktrace
 
 sub new {
     my ($class, $config_file, %xmlopts) = @_;
@@ -102,7 +123,7 @@ sub configure { # accessor/mutator for configuration file
 	eval { $config = XMLin($config_file, SuppressEmpty => '', %xmlopts) };
 
 	if ($@) {
-	    throw XOE::BadXML ($@);
+	    throw XOE::BadXML ($config_file, $@);
 	} else {
 	    $self->config($config);
 	}
@@ -116,6 +137,14 @@ sub config {
     my $config = shift;
     return $self->{CONFIG} unless ($config);
     $self->{CONFIG} = $config;
+}
+
+sub self {
+    my $self = shift()->{_XML_OBJECT_};
+    my $caller = (caller(1))[3];
+    throw XOE::BadSelf() unless (defined $caller);
+    $caller =~ s/^.+::(\w+)$/$1/;
+    return $caller;
 }
 
 sub parent {
@@ -139,7 +168,8 @@ sub grandparent {
 sub test {
     my $self = shift;
     my $key = $self->parent();
-    my @caller = ref $_[0] ? (shift, $key) : ($key); # keep the context (if supplied) at the start
+    # keep the context (if supplied) at the start
+    my @caller = ref $_[0] ? (shift, $key) : ($key);
     return $self->key_test(@caller, @_);
 }
 
@@ -148,25 +178,8 @@ sub test {
 sub demand {
     my $self = shift;
     my $key = $self->parent();
-    my @caller = ref $_[0] ? (shift, $key) : ($key); # keep the context (if supplied) at the start
-    return $self->key_demand(@caller, @_);
-}
-
-# test to see whether specified configuration options are found
-# in grandparent sub's namespace
-sub caller_test {
-    my $self = shift;
-    my $key = $self->grandparent();
-    my @caller = ref $_[0] ? (shift, $key) : ($key); # keep the context (if supplied) at the start
-    return $self->key_test(@caller, @_);
-}
-
-# require specified configuration options to be found
-# in grandparent sub's namespace
-sub caller_demand {
-    my $self = shift;
-    my $key = $self->grandparent();
-    my @caller = ref $_[0] ? (shift, $key) : ($key); # keep the context (if supplied) at the start
+    # keep the context (if supplied) at the start
+    my @caller = ref $_[0] ? (shift, $key) : ($key);
     return $self->key_demand(@caller, @_);
 }
 
@@ -189,16 +202,24 @@ sub key_demand {
 sub _lookup {
     my $self = shift;
     my $demand = shift;
+    # my $arg = (ref $_[-1]) ? pop : undef;
     my $result = (ref $_[0]) ? shift : $self->config();
-    my @args = @_; # copy the path so we can use it in the diagnosis
+    my $path = join ' / ', @_;
+    my $arrayref = 0;
 
-    while ((defined $result)  && (ref ($result) =~ '^(?:ARRAY|HASH)$') && (scalar @_)) {
-	$result = (ref $result eq 'ARRAY') ? $result->[shift()] : $result->{shift()};
+    while ((defined $result)  && ((hashref $result) || ($arrayref = $arrayref = arrayref $result)) && (scalar @_)) {
+	my $key = shift;
+	if ($arrayref) {
+	    # invalidate lookup if array index is not an integer
+	    $result = (isint $key) ? $result->[$key] : undef;
+	} else {
+	    $result = $result->{$key};
+	}
     }
 
     if ($demand) {
 	return $result if (defined $result);
-	throw XOE::BadLookup (join ' / ', @args);
+	throw XOE::BadLookup ($path);
     } else {
 	return $result;
     }
@@ -267,13 +288,8 @@ __END__
 
     use Foo;
 
-    # call from a subroutine to demonstrate caller_test() / caller_demand()
-    sub run { 
-	my $foo = Foo->new($config_file, %optional_xml_simple_options);
-	$foo->foo();
-    }
-
-    run();
+    my $foo = Foo->new($config_file, %optional_xml_simple_options);
+    $foo->run();
 
 =head2 Foo.pm
 
@@ -288,6 +304,13 @@ __END__
 	my $self = $class->SUPER(@_);
 
 	# ...
+
+	return $self;
+    }
+
+    sub run {
+	my $self = shift;
+	$self->foo();
     }
 
     sub foo {
@@ -308,9 +331,9 @@ __END__
 	# provide an explicit key: $self->config()->{user} 
 	my $user = $self->key_test('user');
 
-	# use the name of the function that called this function as the root
+	# use the name of the function that called this function ('run') as the root
 	# equivalent to $self->config()->{run}->{name}
-	my $name = $self->caller_demand('name');
+	my $name = $self->demand($self->parent, 'name');
 
 	# equivalent to $self->key_demand('foo')  i.e. $self->config()->{foo}
 	my $foo = $self->demand();
@@ -322,8 +345,8 @@ __END__
 
 =head1 DESCRIPTION
 
-XML::Object allows easy (XML) configuration of a Perl script/module
-by associating methods with elements. Because each method has its
+XML::Object allows easy configuration of a Perl script/module
+by associating Perl methods with XML elements. Because each method has its
 own configuration 'namespace', the structure of the XML reflects
 that of the object and vice-versa. This partitioning leads to a
 simple and intuitive organisation of the configuration space.
@@ -374,7 +397,7 @@ Which in turn becomes:
 
     $self->config()->{foo}->{list}->[1]->{beta} 
 
-C<test()>, C<demand()>, C<caller_test()>, C<caller_demand()>, C<key_test()> and
+C<test()>, C<demand()>, C<key_test()> and
 C<key_demand()> can be passed a HASH or ARRAY ref as the first
 argument. The lookup is then performed against this structure
 rather than the object's configuration HASH/ARRAY ref.
@@ -405,60 +428,6 @@ e.g.
 
 C<demand()> works the same as C<test()>, but raises an exception
 if the specified value is not defined or the path is invalid.
-
-=head2 caller_test
-
-=head3 usage
-
-    sub run {
-	my $self = shift;
-	$self->example();
-    }
-
-    sub example {
-	my $self = shift;
-
-	# i.e. $self->key_test('run', 'port');
-	my $optional1 = $self->caller_test('port') || 8080;
-
-	    # or 
-
-	# i.e. $self->key_test($array_or_hash_ref, 'run', 'port');
-	my $optional2 = $self->caller_test($array_or_hash_ref, 'port') || 8080;
-    }
-
-=head3 summary
-
-C<caller_test()> uses the name of the subroutine that called the
-current subroutine as the root of the path. Otherwise its use
-is the same as C<test()>.
-
-=head2 caller_demand
-
-=head3 usage
-
-    sub run {
-	my $self = shift;
-	$self->example();
-    }
-
-    sub example {
-	my $self = shift;
-
-	# i.e. $self->key_demand('run', 'user');
-	my $compulsory1 = $self->caller_demand('user');
-
-	    # or
-
-	# i.e. $self->key_demand($array_or_hash_ref, 'run', 'user');
-	my $compulsory2 = $self->caller_demand($array_or_hash_ref, 'user');
-    }
-
-=head3 summary
-
-C<caller_demand()> uses the name of the subroutine that called the
-current subroutine as the root of the path. Otherwise its use
-is the same as C<demand()>.
 
 =head2 key_test
 
@@ -539,11 +508,25 @@ ref or ARRAY ref associated with the object.
 When called with an argument that value is assigned as the object's new
 configuration.
 
+=head2 self
+
+=head3 usage
+
+    my $name = $self->self();
+    # equivalent to $self->key_demand('foo'); 
+    my $foo = $self->key_demand($name, 'foo');
+
+=head3 summary
+
+Returns the name (minus namespace) of the current subroutine.
+Throws an exception unless that value is defined.
+
 =head2 parent
 
 =head3 usage
 
     my $caller = $self->parent();
+    my $caller_foo = $self->test($caller, 'foo');
 
 =head3 summary
 
@@ -556,6 +539,7 @@ value is defined.
 =head3 usage
 
     my $caller_caller = $self->grandparent();
+    my $caller_foo = $self->test($caller_caller, 'foo');
 
 =head3 summary
 
@@ -575,9 +559,9 @@ Thrown if an attempt is made to assign an invalid (i.e. nonexistent or zero-leng
 
 =head2 XOE::BadGrandparent
 
-Thrown if a caller_get* or caller_set* method is invoked in a context in which
-the call stack isn't deep enough for the grandparent of the caller_* method
-to be identified.
+Thrown if C<$self->grandparent()> is invoked in a context in which
+the call stack isn't deep enough for the caller of the caller of the
+current method to be identified.
 
 =head2 XOE::BadLookup
 
@@ -590,10 +574,15 @@ Thrown if a get* or set* method is invoked in a context in which
 the call stack isn't deep enough for the parent of the get* or set* method
 to be identified.
 
+=head2 XOE::BadSelf
+
+Thrown if C<test()>, C<demand()> or C<self()> are invoked from a top-level
+statement which isn't enclosed within a method.
+
 =head2 XOE::BadXML
 
-Thrown if an error occurs during XML::Simple's C<XMLin()> routine, which turns the specified
-XML into a Perl data structure.
+Thrown if an error occurs during XML::Simple's C<XMLin()> routine,
+which turns the specified XML into a Perl data structure.
 
 =head1 EXPORT
 
