@@ -1,0 +1,73 @@
+<config>
+    <new>
+	<!--
+	    <dsn>dbi:mysql:dbname=test</dsn>
+	    <user>user</user>
+	    <password>password</password>
+	-->
+    </new>
+
+    <init>
+	<get>
+	    SELECT * FROM xml_object_dbi_test;
+	</get>
+	<drop>
+	    <set>DROP TABLE xml_object_dbi_test;</set>
+	</drop>
+	<create>
+	    <set>CREATE TABLE xml_object_dbi_test (lhs VARCHAR(32) PRIMARY KEY, rhs VARCHAR(32));</set>
+	</create>
+	<insert1>
+	    <set>INSERT INTO xml_object_dbi_test (lhs, rhs) VALUES ('alpha', 'beta');</set>
+	</insert1>
+	<insert2>
+	    <set>INSERT INTO xml_object_dbi_test (lhs, rhs) VALUES ('gamma', 'vlissides');</set>
+	</insert2>
+    </init>
+
+    <!-- scalar -->
+    <test_s_getArray><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArray>
+    <test_s_getXArray><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getXArray>
+    <test_s_getArrayIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArrayIter1>
+    <test_s_getArrayIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getArrayIter2>
+    <test_s_getHash><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHash>
+    <test_s_getXHash><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getXHash>
+    <test_s_getHashIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHashIter1>
+    <test_s_getHashIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_s_getHashIter2>
+
+
+    <!-- list -->
+
+    <test_l_getArray><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArray>
+    <test_l_getXArray><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getXArray>
+    <test_l_getArrayIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArrayIter1>
+    <test_l_getArrayIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getArrayIter2>
+    <test_l_getHash><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHash>
+    <test_l_getXHash><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getXHash>
+    <test_l_getHashIter1><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHashIter1>
+    <test_l_getHashIter2><get>SELECT * FROM xml_object_dbi_test;</get></test_l_getHashIter2>
+
+    <test_arrayref>
+	<get path="test_arrayref.sql" />
+    </test_arrayref>
+
+    <test_hashref>
+	<get path="test_hashref.sql" />
+    </test_hashref>
+
+    <test_set>
+	<get path="test_set_get.sql" />
+	<set path="test_set_set.sql" />
+    </test_set>
+
+    <test_setIter_args>
+	<get path="set_iter_args_get.sql" />
+	<set path="set_iter_args_set.sql" />
+    </test_setIter_args>
+
+    <test_setIter_noargs>
+	<get path="set_iter_noargs_get.sql" />
+	<set path="set_iter_noargs_set.sql" />
+    </test_setIter_noargs>
+
+</config>

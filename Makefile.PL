@@ -5,9 +5,14 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'		=> 'XML::Object',
     'VERSION_FROM'	=> 'lib/XML/Object.pm', # finds $VERSION
-    'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'		=> { 
+	'Error'		=> 0.15,
+	'XML::Simple'	=> 0,
+	'Test::More'	=> 0,
+	'Util'		=> 0.02
+    }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (
       # ABSTRACT_FROM => 'Object.pm', # retrieve abstract from module
-       AUTHOR     => 'chocolateboy: <chocolateboy@chocolatey.com>') : ()),
+       AUTHOR     => 'chocolateboy: <chocolate.boy@email.com>') : ()),
 );

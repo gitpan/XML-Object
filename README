@@ -1,16 +1,17 @@
-XML::Object version 0.01
+XML::Object version 0.02
 =======================
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+XML::Object allows easy (XML) configuration of a Perl script/module
+by associating methods with elements. Because each method has its
+own configuration 'namespace', the structure of the XML reflects
+that of the object and vice-versa. This partitioning leads to a
+simple and intuitive organisation of the configuration space.
 
-A README file is required for CPAN modules since CPAN extracts the
-README file from a module distribution so that people browsing the
-archive can use it get an idea of the modules uses. It is usually a
-good idea to provide version information here so that people can
-decide whether fixes for the module are worth downloading.
+XML::Object::DBI adds database accessors (get) and mutators (set) to
+the mix. These shield the user from DBI housekeeping while freeing them
+to manage the SQL in a convenient and flexible way.
+
+See the POD for more details.
 
 INSTALLATION
 
@@ -23,16 +24,20 @@ To install this module type the following:
 
 DEPENDENCIES
 
-This module requires these other modules and libraries:
+    Error
+    Util
+    XML::Simple
 
-  blah blah blah
+To test XML::Object::DBI you will need a database that allows the
+creation and population of a new test table. The DSN, username and
+password should be specified in the XOD_DSN, XOD_USER and XOD_PASSWORD
+environment variables respectively.
 
 COPYRIGHT AND LICENCE
 
 Put the correct copyright and licence information here.
 
-Copyright (C) 2003 Byron
+Copyright (C) 2003 chocolateboy
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
-

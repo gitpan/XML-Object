@@ -6,6 +6,8 @@ use strict;
 use warnings;
 use Test::More tests => 7;
 
+# TODO: Test::Exception exception tests
+
 BEGIN {
     chdir 't' if -d 't';
     unshift @INC, '../lib';

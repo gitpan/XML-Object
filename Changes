@@ -1,6 +1,22 @@
 Revision history for Perl extension XML::Object.
 
+0.02  Tue Jun 18 17:33:13 2003
+    XML::Object
+	- Documentation overhaul
+
+    XML::Object::DBI
+	- Documentation overhaul
+	- Test suite rewritten
+	- Support for external SQL:
+		<get path="foo.sql">...</get>
+		<set path="bar.sql">...</set>
+	- interface changed from monolithic sql() to
+	  get*() (SELECT) and set() (INSERT, UPDATE, DELETE)
+	- generic get() replaced with typed:
+	    getArray(), getXArray(), getArrayIter(), getHash(), getXHash(), getHashIter
+	    to eliminate fragile coupling between code and XML
+	- exceptions (courtesy of Error.pm) replace error handlers
+
 0.01  Fri Jan 10 10:47:05 2003
 	- original version; created by h2xs 1.22 with options
-		-Xn XML-Object
-
+	    -Xn XML-Object
