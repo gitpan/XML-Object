@@ -1,0 +1,8 @@
+Makefile.PL
+README
+Changes
+MANIFEST
+lib/XML/Object.pm
+lib/XML/Object/DBI.pm
+t/xml_object.t
+t/xml_object.xml
